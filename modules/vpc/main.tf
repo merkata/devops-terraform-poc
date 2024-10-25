@@ -14,8 +14,7 @@ locals {
 }
 
 module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 4.0"
+  source  = "git::https://github.com/terraform-aws-modules/terraform-aws-vpc.git?ref=12caf8056992a6e327c584475f1522d05e77284d" # v5.14.0
 
   name = "${var.project_name}-${var.environment}"
   cidr = var.vpc_cidr
