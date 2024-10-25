@@ -1,0 +1,62 @@
+formatter: "markdown table"
+
+settings:
+  anchor: true
+  color: true
+  default: true
+  escape: true
+  indent: 3
+  required: true
+  sensitive: true
+  type: true
+
+output:
+  file: "README.md"
+  mode: inject
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+content: |-
+  ## Requirements
+
+  {{ .Requirements }}
+
+  ## Providers
+
+  {{ .Providers }}
+
+  ## Modules
+
+  {{ .Modules }}
+
+  ## Resources
+
+  {{ .Resources }}
+
+  ## Inputs
+
+  {{ .Inputs }}
+
+  ## Outputs
+
+  {{ .Outputs }}
+
+  ## Examples
+  ```hcl
+  {{ include "examples/complete/main.tf" }}
+  ```
+
+sort:
+  enabled: true
+  by: required
+
+sections:
+  show:
+    - requirements
+    - providers
+    - inputs
+    - outputs
+    - resources
+    - modules
