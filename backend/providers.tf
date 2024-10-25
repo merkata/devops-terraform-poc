@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"  # Primary region for backend storage
+  region = "us-east-1" # Primary region for backend storage
 
   default_tags {
     tags = {
