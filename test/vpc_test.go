@@ -75,7 +75,6 @@ func TestVPCModule(t *testing.T) {
 
 				// Variables to pass to our Terraform code using -var options
 				Vars: map[string]interface{}{
-					"region":       tc.region,
 					"environment":  tc.environment,
 					"project_name": projectName,
 					"vpc_cidr":     tc.vpcCidr,
