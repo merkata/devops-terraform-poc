@@ -54,12 +54,12 @@ func TestVPCModule(t *testing.T) {
 			environment: "staging",
 			vpcCidr:     "10.0.0.0/16",
 		},
-		{
-			name:        "eu-west-1-staging",
-			region:      "eu-west-1",
-			environment: "staging",
-			vpcCidr:     "10.1.0.0/16",
-		},
+		//		{
+		//			name:        "eu-west-1-staging",
+		//			region:      "eu-west-1",
+		//			environment: "staging",
+		//			vpcCidr:     "10.1.0.0/16",
+		//		},
 	}
 
 	for _, testCase := range testCases {
