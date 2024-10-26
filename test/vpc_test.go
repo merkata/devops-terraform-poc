@@ -35,7 +35,7 @@ func hasRequiredTags(tags []*ec2.Tag, requiredTags map[string]string) bool {
 }
 
 func TestVPCModule(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// Generate a random name to prevent a naming conflict
 	uniqueID := random.UniqueId()
