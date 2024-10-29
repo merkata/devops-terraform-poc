@@ -76,6 +76,39 @@ func HasRequiredTags(actual []Tag, required map[string]string) bool {
 	return true
 }
 
+// CreateALB creates a test ALB configuration
+func CreateALB(t TestingT, region, environment, projectName string, vpcID string, publicSubnets []string) *terraform.Options {
+	return &terraform.Options{
+		TerraformDir: "../modules/alb",
+		Vars: map[string]interface{}{
+			"environment":     environment,
+			"project_name":    projectName,
+			"vpc_id":          vpcID,
+			"public_subnets":  publicSubnets,
+			"certificate_arn": "arn:aws:acm:us-east-1:123456789012:certificate/test-certificate",
+			"apps": map[string]interface{}{
+				"app1": map[string]interface{}{
+					"port":             8085,
+					"path":             "/app1/*",
+					"health_check_url": "/app1/status",
+					"domain":           []string{"merkata.cloudns.be"},
+					"priority":         100,
+				},
+				"app2": map[string]interface{}{
+					"port":             8086,
+					"path":             "/app2/*",
+					"health_check_url": "/app2/status",
+					"domain":           []string{"merkata.cloudns.be"},
+					"priority":         200,
+				},
+			},
+		},
+		EnvVars: map[string]string{
+			"AWS_DEFAULT_REGION": region,
+		},
+	}
+}
+
 // CreateVPCTestConfig creates a test VPC configuration
 func CreateVPC(t TestingT, region, environment, projectName string) *terraform.Options {
 	return &terraform.Options{
