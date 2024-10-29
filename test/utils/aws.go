@@ -85,7 +85,7 @@ func CreateALB(t TestingT, region, environment, projectName string, vpcID string
 			"project_name":    projectName,
 			"vpc_id":          vpcID,
 			"public_subnets":  publicSubnets,
-			"certificate_arn": "arn:aws:acm:us-east-1:123456789012:certificate/test-certificate",
+			"certificate_arn": "arn:aws:acm:us-east-1:683721267198:certificate/aa67a8ae-f2fe-4cef-95e6-a676fd11f5be", // Replace with a valid certificate ARN for testing
 			"apps": map[string]interface{}{
 				"app1": map[string]interface{}{
 					"port":             8085,
