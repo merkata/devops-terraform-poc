@@ -49,9 +49,9 @@ func TestVPCModule(t *testing.T) {
 		vpcCidr     string
 	}{
 		{
-			name:        "us-east-1-staging",
+			name:        "us-east-1-ci",
 			region:      "us-east-1",
-			environment: "staging",
+			environment: "ci",
 			vpcCidr:     "10.0.0.0/16",
 		},
 		//		{
