@@ -127,7 +127,7 @@ func setupComputeTest(t *testing.T, workingDir, region, environment, projectName
 		},
 	}
 
-	test_structure.SaveTerraformOptions(t, workingDir, "terraform_options", computeOpts)
+	test_structure.SaveTerraformOptions(t, workingDir, computeOpts)
 
 	terraform.InitAndApply(t, computeOpts)
 }
