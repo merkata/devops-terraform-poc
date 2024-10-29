@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -197,7 +198,7 @@ func testTargetGroups(t *testing.T, client *elbv2.ELBV2, targetGroupArns map[str
 }
 
 func testListenerRules(t *testing.T, client *elbv2.ELBV2, albName string, apps map[string]interface{}) {
-	// Get ALB Listeners
+	// Get ALB by name
 	input := &elbv2.DescribeLoadBalancersInput{
 		Names: []*string{aws.String(albName)},
 	}
@@ -216,12 +217,12 @@ func testListenerRules(t *testing.T, client *elbv2.ELBV2, albName string, apps m
 	// Find HTTPS listener
 	var httpsListener *elbv2.Listener
 	for _, listener := range listeners.Listeners {
-		if *listener.Protocol == "HTTPS" {
+		if listener != nil && listener.Protocol != nil && *listener.Protocol == "HTTPS" {
 			httpsListener = listener
 			break
 		}
 	}
-	require.NotNil(t, httpsListener)
+	require.NotNil(t, httpsListener, "HTTPS listener not found")
 
 	// Check listener rules
 	rulesInput := &elbv2.DescribeRulesInput{
@@ -231,49 +232,78 @@ func testListenerRules(t *testing.T, client *elbv2.ELBV2, albName string, apps m
 	rules, err := client.DescribeRules(rulesInput)
 	require.NoError(t, err)
 
-	// Verify rules match app configuration
+	// Create a map of rules by priority for easier lookup
+	rulesByPriority := make(map[int]*elbv2.Rule)
+	for _, rule := range rules.Rules {
+		if rule != nil && rule.Priority != nil && *rule.Priority != "default" {
+			priority, err := strconv.Atoi(*rule.Priority)
+			if err != nil {
+				t.Logf("Warning: Could not parse rule priority %s", *rule.Priority)
+				continue
+			}
+			rulesByPriority[priority] = rule
+		}
+	}
+
+	// Log the rules we found for debugging
+	t.Logf("Found %d rules:", len(rulesByPriority))
+	for priority, rule := range rulesByPriority {
+		t.Logf("Rule priority %d:", priority)
+		for _, condition := range rule.Conditions {
+			if condition.Field != nil {
+				t.Logf("  - Condition type: %s", *condition.Field)
+			}
+		}
+	}
+
+	// Verify each app's configuration
 	for appName, appConfig := range apps {
 		app := appConfig.(map[string]interface{})
-		found := false
+		priority := app["priority"].(int)
 
-		for _, rule := range rules.Rules {
-			if rule == nil {
-				continue
-			}
-			if rule.Priority == nil {
-				continue
-			}
-			found = true
+		t.Logf("Checking app %s with priority %d", appName, priority)
 
-			// Helper function to safely check conditions
-			findCondition := func(conditionType string) *elbv2.RuleCondition {
-				for _, condition := range rule.Conditions {
-					if condition != nil && condition.Field != nil && *condition.Field == conditionType {
-						return condition
-					}
-				}
-				return nil
-			}
-
-			// Check path pattern
-			pathCondition := findCondition("path-pattern")
-			require.NotNil(t, pathCondition, "Path pattern condition not found for app %s", appName)
-			require.NotNil(t, pathCondition.PathPatternConfig, "Path pattern config is nil for app %s", appName)
-			require.NotEmpty(t, pathCondition.PathPatternConfig.Values, "Path pattern values are empty for app %s", appName)
-			assert.Equal(t, app["path"].(string), *pathCondition.PathPatternConfig.Values[0],
-				"Path pattern mismatch for app %s", appName)
-
-			// Check host header
-			hostCondition := findCondition("host-header")
-			require.NotNil(t, hostCondition, "Host header condition not found for app %s", appName)
-			require.NotNil(t, hostCondition.HostHeaderConfig, "Host header config is nil for app %s", appName)
-			require.NotEmpty(t, hostCondition.HostHeaderConfig.Values, "Host header values are empty for app %s", appName)
-			assert.Equal(t, app["domain"].([]string)[0], *hostCondition.HostHeaderConfig.Values[0],
-				"Host header mismatch for app %s", appName)
-
-			break
+		rule, exists := rulesByPriority[priority]
+		if !exists {
+			t.Errorf("No rule found for app %s with priority %d", appName, priority)
+			continue
 		}
-		assert.True(t, found, "No rule found for app %s", appName)
+
+		// Helper function to safely check conditions
+		findCondition := func(rule *elbv2.Rule, conditionType string) *elbv2.RuleCondition {
+			for _, condition := range rule.Conditions {
+				if condition != nil && condition.Field != nil && *condition.Field == conditionType {
+					return condition
+				}
+			}
+			return nil
+		}
+
+		// Check path pattern
+		pathCondition := findCondition(rule, "path-pattern")
+		require.NotNil(t, pathCondition, "Path pattern condition not found for app %s (priority %d)", appName, priority)
+		require.NotNil(t, pathCondition.PathPatternConfig, "Path pattern config is nil for app %s", appName)
+		require.NotEmpty(t, pathCondition.PathPatternConfig.Values, "Path pattern values are empty for app %s", appName)
+
+		expectedPath := app["path"].(string)
+		actualPath := *pathCondition.PathPatternConfig.Values[0]
+		if expectedPath != actualPath {
+			t.Errorf("Path pattern mismatch for app %s (priority %d):\nExpected: %s\nActual: %s",
+				appName, priority, expectedPath, actualPath)
+		}
+
+		// Check host header
+		hostCondition := findCondition(rule, "host-header")
+		require.NotNil(t, hostCondition, "Host header condition not found for app %s (priority %d)", appName, priority)
+		require.NotNil(t, hostCondition.HostHeaderConfig, "Host header config is nil for app %s", appName)
+		require.NotEmpty(t, hostCondition.HostHeaderConfig.Values, "Host header values are empty for app %s", appName)
+
+		expectedDomain := app["domain"].([]string)[0]
+		actualDomain := *hostCondition.HostHeaderConfig.Values[0]
+		if expectedDomain != actualDomain {
+			t.Errorf("Host header mismatch for app %s (priority %d):\nExpected: %s\nActual: %s",
+				appName, priority, expectedDomain, actualDomain)
+		}
 	}
 }
 
