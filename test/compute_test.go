@@ -66,35 +66,7 @@ func setupComputeTest(t *testing.T, workingDir, region, environment, projectName
 	publicSubnets := terraform.OutputList(t, vpcOpts, "public_subnets")
 
 	// Create ALB using the ALB module
-	albOpts := &terraform.Options{
-		TerraformDir: "../modules/alb",
-		Vars: map[string]interface{}{
-			"environment":     environment,
-			"project_name":    projectName,
-			"vpc_id":          vpcID,
-			"public_subnets":  publicSubnets,
-			"certificate_arn": "arn:aws:acm:us-east-1:123456789012:certificate/test-certificate", // You'll need to provide a valid certificate ARN
-			"apps": map[string]interface{}{
-				"app1": map[string]interface{}{
-					"port":             8085,
-					"path":             "/app1/*",
-					"health_check_url": "/app1/status",
-					"domain":           []string{"merkata.cloudns.be"},
-					"priority":         100,
-				},
-				"app2": map[string]interface{}{
-					"port":             8086,
-					"path":             "/app2/*",
-					"health_check_url": "/app2/status",
-					"domain":           []string{"merkata.cloudns.be"},
-					"priority":         200,
-				},
-			},
-		},
-		EnvVars: map[string]string{
-			"AWS_DEFAULT_REGION": region,
-		},
-	}
+	albOpts := utils.CreateALB(t, region, environment, projectName, vpcID, publicSubnets)
 	defer terraform.Destroy(t, albOpts)
 
 	terraform.InitAndApply(t, albOpts)
