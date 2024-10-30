@@ -17,6 +17,19 @@ Notable components of the repo:
 - CI that will run formatting, linting, security checks, tests and automated module documentation
 - a backend configuration for using S3 (with DynamoDB) as a terraform state backend
 
+## Technical backlog
+
+Notes on what can be improved and added:
+
+- a cleanup job for cloud resources (cloud-nuke) that can remain after failed tests
+- refactoring of the tests to move common code to utils/aws.go
+- an improved testing pipeline for PR and merge to main (currently runs e2e), can run specific test on detected change
+- address additional practices for the infrastructure (ALB access logs would require an additional S3 bucket)
+- automate manually created artifacts (DNS and cert)
+- add a test for S3 content
+- address security practices in the backend reported by checkov
+- use a simple app with a health check endpoint and accessing a static (S3) resource to enhance testing
+
 ## Getting Started
 
 ### Bootstrap Script
