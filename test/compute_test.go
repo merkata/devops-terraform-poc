@@ -22,18 +22,39 @@ func TestComputeModule(t *testing.T) {
 	t.Parallel()
 
 	workingDir := test_structure.CopyTerraformFolderToTemp(t, "../", "modules/compute")
-	uniqueID := random.UniqueId()[:6]
+	uniqueID := strings.ToLower(random.UniqueId())
 	projectName := fmt.Sprintf("comp%s", uniqueID)
 
 	testCases := []struct {
-		name        string
-		region      string
-		environment string
+		name          string
+		region        string
+		environment   string
+		instanceType  string
+		instanceCount int
+		apps         map[string]interface{}
 	}{
 		{
-			name:        "us-east-1-ci",
-			region:      "us-east-1",
-			environment: "ci",
+			name:          "us-east-1-ci",
+			region:        "us-east-1",
+			environment:   "ci",
+			instanceType:  "t3.micro",
+			instanceCount: 2,
+			apps: map[string]interface{}{
+				"app1": map[string]interface{}{
+					"port":             8085,
+					"path":             "/app1/*",
+					"health_check_url": "/app1/status",
+					"domain":           []string{"merkata.cloudns.be"},
+					"priority":         100,
+				},
+				"app2": map[string]interface{}{
+					"port":             8086,
+					"path":             "/app2/*",
+					"health_check_url": "/app2/status",
+					"domain":           []string{"merkata.cloudns.be"},
+					"priority":         200,
+				},
+			},
 		},
 	}
 
@@ -43,87 +64,72 @@ func TestComputeModule(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			test_structure.RunTestStage(t, "setup", func() {
-				setupComputeTest(t, workingDir, tc.region, tc.environment, projectName)
-			})
+			// Create VPC first as compute depends on it
+			vpcOpts := utils.CreateVPC(t, tc.region, tc.environment, projectName)
+			defer terraform.Destroy(t, vpcOpts)
 
-			test_structure.RunTestStage(t, "validate", func() {
-				validateComputeInfrastructure(t, workingDir)
-			})
+			terraform.InitAndApply(t, vpcOpts)
+
+			vpcID := terraform.Output(t, vpcOpts, "vpc_id")
+			privateSubnets := terraform.OutputList(t, vpcOpts, "private_subnets")
+			publicSubnets := terraform.OutputList(t, vpcOpts, "public_subnets")
+
+			// Create ALB using the ALB module
+			albOpts := utils.CreateALB(t, tc.region, tc.environment, projectName, vpcID, publicSubnets)
+			defer terraform.Destroy(t, albOpts)
+
+			terraform.InitAndApply(t, albOpts)
+
+			albSecurityGroupID := terraform.Output(t, albOpts, "alb_security_group_id")
+			targetGroupArns := terraform.OutputMap(t, albOpts, "target_group_arns")
+			tgARNs := []string{
+				targetGroupArns["app1"],
+				targetGroupArns["app2"],
+			}
+
+			// Setup compute module
+			computeOpts := &terraform.Options{
+				TerraformDir: workingDir,
+				Vars: map[string]interface{}{
+					"environment":           tc.environment,
+					"project_name":          projectName,
+					"vpc_id":                vpcID,
+					"private_subnets":       privateSubnets,
+					"instance_type":         tc.instanceType,
+					"instance_count":        tc.instanceCount,
+					"apps":                  tc.apps,
+					"target_group_arns":     tgARNs,
+					"alb_security_group_id": albSecurityGroupID,
+				},
+				EnvVars: map[string]string{
+					"AWS_DEFAULT_REGION": tc.region,
+				},
+			}
+
+			defer terraform.Destroy(t, computeOpts)
+
+			terraform.InitAndApply(t, computeOpts)
+
+			// Create AWS clients
+			ec2Client := utils.CreateEC2Client(tc.region)
+			asgClient := utils.CreateASGClient(tc.region) 
+			iamClient := utils.CreateIAMClient(tc.region)
+
+			// Test Launch Template
+			testLaunchTemplate(t, ec2Client, computeOpts)
+
+			// Test Auto Scaling Group  
+			testAutoScalingGroup(t, asgClient, computeOpts)
+
+			// Test IAM Role and Instance Profile
+			testIAMConfiguration(t, iamClient, computeOpts)
+
+			// Test Security Group
+			testSecurityGroup(t, ec2Client, computeOpts)
 		})
 	}
 }
 
-func setupComputeTest(t *testing.T, workingDir, region, environment, projectName string) {
-	// Create VPC first as compute depends on it
-	vpcOpts := utils.CreateVPC(t, region, environment, projectName)
-	defer terraform.Destroy(t, vpcOpts)
-
-	terraform.InitAndApply(t, vpcOpts)
-
-	vpcID := terraform.Output(t, vpcOpts, "vpc_id")
-	privateSubnets := terraform.OutputList(t, vpcOpts, "private_subnets")
-	publicSubnets := terraform.OutputList(t, vpcOpts, "public_subnets")
-
-	// Create ALB using the ALB module
-	albOpts := utils.CreateALB(t, region, environment, projectName, vpcID, publicSubnets)
-	defer terraform.Destroy(t, albOpts)
-
-	terraform.InitAndApply(t, albOpts)
-
-	// Get the outputs from the ALB module
-	albSecurityGroupID := terraform.Output(t, albOpts, "security_group_id")
-
-	// Get target group ARNs from the ALB module output
-	targetGroupArns := []string{
-		terraform.Output(t, albOpts, "target_group_arns.app1"),
-		terraform.Output(t, albOpts, "target_group_arns.app2"),
-	}
-
-	// Setup compute module
-	computeOpts := &terraform.Options{
-		TerraformDir: workingDir,
-		Vars: map[string]interface{}{
-			"environment":           environment,
-			"project_name":          projectName,
-			"vpc_id":                vpcID,
-			"private_subnets":       privateSubnets,
-			"instance_type":         "t3.micro",
-			"instance_count":        2,
-			"apps":                  albOpts.Vars["apps"],
-			"target_group_arns":     targetGroupArns,
-			"alb_security_group_id": albSecurityGroupID,
-		},
-		EnvVars: map[string]string{
-			"AWS_DEFAULT_REGION": region,
-		},
-	}
-
-	test_structure.SaveTerraformOptions(t, workingDir, computeOpts)
-
-	terraform.InitAndApply(t, computeOpts)
-}
-
-func validateComputeInfrastructure(t *testing.T, workingDir string) {
-	computeOpts := test_structure.LoadTerraformOptions(t, workingDir)
-	awsRegion := computeOpts.EnvVars["AWS_DEFAULT_REGION"]
-
-	ec2Client := utils.CreateEC2Client(awsRegion)
-	asgClient := utils.CreateASGClient(awsRegion)
-	iamClient := utils.CreateIAMClient(awsRegion)
-
-	// Test Launch Template
-	testLaunchTemplate(t, ec2Client, computeOpts)
-
-	// Test Auto Scaling Group
-	testAutoScalingGroup(t, asgClient, computeOpts)
-
-	// Test IAM Role and Instance Profile
-	testIAMConfiguration(t, iamClient, computeOpts)
-
-	// Test Security Group
-	testSecurityGroup(t, ec2Client, computeOpts)
-}
 
 func testLaunchTemplate(t *testing.T, ec2Client *ec2.EC2, terraformOptions *terraform.Options) {
 	ltID := terraform.Output(t, terraformOptions, "launch_template_id")
