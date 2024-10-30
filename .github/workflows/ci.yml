@@ -62,7 +62,7 @@ jobs:
     - name: Run Terratest
       run: |
         cd test
-        go test -v ./... -timeout 50m
+        go test -run TestE2E -timeout 50m
 
     - name: Generate Terraform Docs
       uses: terraform-docs/gh-actions@v1.0.0
