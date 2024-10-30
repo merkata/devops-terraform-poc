@@ -29,6 +29,7 @@ Notes on what can be improved and added:
 - add a test for S3 content
 - address security practices in the backend reported by checkov
 - use a simple app with a health check endpoint and accessing a static (S3) resource to enhance testing
+- have a running deployment for CD and make use of infracost
 
 ## Getting Started
 
