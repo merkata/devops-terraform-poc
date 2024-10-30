@@ -53,17 +53,6 @@ jobs:
     - name: TFLint
       run: tflint --recursive
 
-    - name: Run Checkov
-      uses: bridgecrewio/checkov-action@master
-      with:
-        directory: modules/
-        framework: terraform
-
-    - name: Run Terratest
-      run: |
-        cd test
-        go test -run TestE2E -timeout 50m
-
     - name: Generate Terraform Docs
       uses: terraform-docs/gh-actions@v1.0.0
       with:
@@ -76,6 +65,17 @@ jobs:
         recursive: true
         recursive-path: modules
         fail-on-diff: true
+
+    - name: Run Checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: modules/
+        framework: terraform
+
+    - name: Run Terratest
+      run: |
+        cd test
+        go test -run TestE2E -timeout 50m
 
     - name: Update Pull Request
       uses: actions/github-script@v6
