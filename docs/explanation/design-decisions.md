@@ -27,6 +27,8 @@ This separation allows:
 - All HTTP traffic is redirected to HTTPS
 - TLS 1.2+ required for all connections
 - Security headers are stripped
+
+TODO:
 - Access logs enabled for audit trail
 
 ### Network Security

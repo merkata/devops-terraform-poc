@@ -20,6 +20,8 @@ The infrastructure is designed as a modular, multi-tier application platform run
 - HTTPS-only Application Load Balancer
 - TLS 1.2+ for secure communication
 - Path-based routing to different applications
+
+TODO:
 - Access logging for security and compliance
 - Header cleaning for security
 
