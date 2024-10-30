@@ -30,6 +30,7 @@ Notes on what can be improved and added:
 - address security practices in the backend reported by checkov
 - use a simple app with a health check endpoint and accessing a static (S3) resource to enhance testing
 - have a running deployment for CD and make use of infracost
+- be consistent with tagging and tag propagation to additional ressources (such as EBS volumes)
 
 ## Getting Started
 
