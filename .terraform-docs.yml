@@ -43,10 +43,6 @@ content: |-
 
   {{ .Outputs }}
 
-  ## Examples
-  ```hcl
-  {{ include "examples/complete/main.tf" }}
-  ```
 
 sort:
   enabled: true
