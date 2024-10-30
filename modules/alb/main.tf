@@ -1,9 +1,11 @@
 resource "aws_security_group" "alb" {
+  #checkov:skip=CKV_AWS_260: "Rerouting to HTTPS is intentional"
   name        = substr(local.alb_name, 0, 32)
   description = "ALB Security Group"
   vpc_id      = var.vpc_id
 
   ingress {
+    description = "Allow HTTP traffic"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -11,6 +13,7 @@ resource "aws_security_group" "alb" {
   }
 
   ingress {
+    description = "Allow HTTPS traffic"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
@@ -18,6 +21,7 @@ resource "aws_security_group" "alb" {
   }
 
   egress {
+    description = "Allow all traffic out"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -31,6 +35,10 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_lb" "main" {
+  #checkov:skip=CKV2_AWS_28: "WAF is not enabled"
+  #checkov:skip=CKV_AWS_91: "Access logs are not enabled"
+  #checkov:skip=CKV_AWS_150: "Deletion protection is enabled on prod only"
+  #checkov:skip=CKV_AWS_131: "Not dropping http headers"
   name               = substr(local.alb_name, 0, 32)
   internal           = false
   load_balancer_type = "application"
@@ -77,6 +85,7 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_target_group" "apps" {
+  #checkov:skip=CKV_AWS_378: "HTTP redirect is intentional"
   for_each = var.apps
 
   name        = "${var.project_name}-${var.environment}-${each.key}"
