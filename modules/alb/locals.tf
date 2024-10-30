@@ -1,11 +1,11 @@
 locals {
   # Ensure the name length is within AWS limits (32 characters)
   name_max_length = 32
-  
+
   # Take first 16 chars of project name to leave room for environment and suffix
-  project_prefix  = substr(lower(replace(var.project_name, "/[^a-zA-Z0-9-]/", "")), 0, 16)
-  env_suffix      = substr(var.environment, 0, 8)
-  
+  project_prefix = substr(lower(replace(var.project_name, "/[^a-zA-Z0-9-]/", "")), 0, 16)
+  env_suffix     = substr(var.environment, 0, 8)
+
   # Final ALB name: "<project_prefix>-<env>-alb"
   alb_name = format(
     "%s-%s-alb",

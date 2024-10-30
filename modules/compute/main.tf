@@ -72,7 +72,7 @@ resource "aws_launch_template" "app" {
 
   network_interfaces {
     associate_public_ip_address = false
-    security_groups            = [aws_security_group.ec2.id]
+    security_groups             = [aws_security_group.ec2.id]
   }
 
   metadata_options {
@@ -117,9 +117,9 @@ resource "aws_launch_template" "app" {
 resource "aws_autoscaling_group" "app" {
   name                = "${var.project_name}-${var.environment}-asg"
   desired_capacity    = var.instance_count
-  max_size           = var.instance_count * 2
-  min_size           = var.instance_count
-  target_group_arns  = var.target_group_arns
+  max_size            = var.instance_count * 2
+  min_size            = var.instance_count
+  target_group_arns   = var.target_group_arns
   vpc_zone_identifier = var.private_subnets
 
   launch_template {
