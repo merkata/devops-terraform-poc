@@ -164,6 +164,10 @@ func testLaunchTemplate(t *testing.T, ec2Client *ec2.EC2, terraformOptions *terr
 	assert.Equal(t, "gp3", *volume.VolumeType)
 
 	// Verify tags
+	require.NotNil(t, lt.LaunchTemplateData.TagSpecifications, "TagSpecifications should not be nil")
+	require.Greater(t, len(lt.LaunchTemplateData.TagSpecifications), 0, "TagSpecifications should not be empty")
+	require.NotNil(t, lt.LaunchTemplateData.TagSpecifications[0].Tags, "Tags should not be nil")
+	
 	hasExpectedTags := utils.HasRequiredTags(
 		utils.ConvertEC2TagsToTags(lt.LaunchTemplateData.TagSpecifications[0].Tags),
 		map[string]string{
@@ -187,19 +191,36 @@ func testAutoScalingGroup(t *testing.T, asgClient *autoscaling.AutoScaling, terr
 
 	asg := result.AutoScalingGroups[0]
 
+	// Verify ASG is not nil and has expected properties
+	require.NotNil(t, asg.DesiredCapacity, "DesiredCapacity should not be nil")
+	require.NotNil(t, asg.MinSize, "MinSize should not be nil")
+	require.NotNil(t, asg.MaxSize, "MaxSize should not be nil")
+	require.NotNil(t, asg.VPCZoneIdentifier, "VPCZoneIdentifier should not be nil")
+
+	instanceCount, ok := terraformOptions.Vars["instance_count"].(int)
+	require.True(t, ok, "instance_count should be an integer")
+
 	// Verify instance count
-	assert.Equal(t, int64(terraformOptions.Vars["instance_count"].(int)), *asg.DesiredCapacity)
-	assert.Equal(t, int64(terraformOptions.Vars["instance_count"].(int)), *asg.MinSize)
-	assert.Equal(t, int64(terraformOptions.Vars["instance_count"].(int)*2), *asg.MaxSize)
+	assert.Equal(t, int64(instanceCount), *asg.DesiredCapacity)
+	assert.Equal(t, int64(instanceCount), *asg.MinSize)
+	assert.Equal(t, int64(instanceCount*2), *asg.MaxSize)
 
 	// Verify subnets
-	expectedSubnets := terraformOptions.Vars["private_subnets"].([]string)
+	privateSubnets, ok := terraformOptions.Vars["private_subnets"].([]string)
+	require.True(t, ok, "private_subnets should be a string slice")
+	require.NotEmpty(t, privateSubnets, "private_subnets should not be empty")
+	
 	actualSubnets := strings.Split(*asg.VPCZoneIdentifier, ",")
-	assert.ElementsMatch(t, expectedSubnets, actualSubnets)
+	require.NotEmpty(t, actualSubnets, "actual subnets should not be empty")
+	assert.ElementsMatch(t, privateSubnets, actualSubnets)
 
 	// Verify target groups
-	expectedTargetGroups := terraformOptions.Vars["target_group_arns"].([]string)
-	assert.ElementsMatch(t, expectedTargetGroups, aws.StringValueSlice(asg.TargetGroupARNs))
+	targetGroupArns, ok := terraformOptions.Vars["target_group_arns"].([]string)
+	require.True(t, ok, "target_group_arns should be a string slice")
+	require.NotEmpty(t, targetGroupArns, "target_group_arns should not be empty")
+	require.NotNil(t, asg.TargetGroupARNs, "TargetGroupARNs should not be nil")
+	
+	assert.ElementsMatch(t, targetGroupArns, aws.StringValueSlice(asg.TargetGroupARNs))
 }
 
 func testIAMConfiguration(t *testing.T, iamClient *iam.IAM, terraformOptions *terraform.Options) {
